@@ -62,31 +62,20 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           tg() {
-            curl -sS --max-time 20 -o /dev/null \
-              "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
-              -d chat_id="${TG_CHAT}" \
-              -d disable_web_page_preview=true \
-              --data-urlencode text="$1"
+            curl -sS --max-time 20 -o /dev/null "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" -d chat_id="${TG_CHAT}" -d disable_web_page_preview=true --data-urlencode text="$1"
           }
-          num=$(gh issue list --state open --limit 50 --json number,title \
-                --jq '.[] | select(.title=="PROBE-DOWN") | .number' | head -n1)
+          num=$(gh issue list --state open --limit 50 --json number,title --jq '.[] | select(.title=="PROBE-DOWN") | .number' | head -n1)
           now=$(TZ=Europe/Moscow date '+%d.%m.%Y %H:%M МСК')
           if [ "$STATUS" = "fail" ]; then
             if [ -z "$num" ]; then
-              gh issue create --title "PROBE-DOWN" --body "Первая неудачная проба: ${now}
-Детали: ${DETAIL}
-Лог: ${RUN_URL}"
-              tg "🔴 443/tcp не отвечает
-Время: ${now}
-Детали: ${DETAIL}
-Проба идёт из сети GitHub, не из РФ."
+              body=$(printf 'Первая неудачная проба: %s\nДетали: %s\nЛог: %s\n' "$now" "$DETAIL" "$RUN_URL")
+              gh issue create --title "PROBE-DOWN" --body "$body"
+              tg "$(printf '🔴 443/tcp не отвечает\nВремя: %s\nДетали: %s\nПроба идёт не из РФ.\n' "$now" "$DETAIL")"
             fi
           else
             if [ -n "$num" ]; then
-              gh issue comment "$num" --body "${now} — восстановлен (${DETAIL})"
+              gh issue comment "$num" --body "$(printf '%s — восстановлен (%s)\n' "$now" "$DETAIL")"
               gh issue close "$num"
-              tg "🟢 443/tcp снова отвечает
-Время: ${now}
-Детали: ${DETAIL}"
+              tg "$(printf '🟢 443/tcp снова отвечает\nВремя: %s\nДетали: %s\n' "$now" "$DETAIL")"
             fi
           fi
